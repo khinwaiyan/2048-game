@@ -1,4 +1,4 @@
-export type Grid = number[][];
+type Grid = number[][];
 export const initializeGrid = () => {
   //0 으로 채워진 4X4 grid
   let grid: Grid = Array.from({ length: 4 }, () => Array<number>(4).fill(0));
@@ -82,7 +82,7 @@ export const moveRight = (grid: Grid): [Grid, boolean, number] => {
   return [movedGrid.map((row) => row.reverse()), moved, scoreToAdd];
 };
 
-export const transpose = (grid: Grid): Grid => {
+const transpose = (grid: Grid): Grid => {
   if (grid[0] !== undefined) {
     return grid[0].map((_, i) => grid.map((row) => row[i] ?? 0));
   }

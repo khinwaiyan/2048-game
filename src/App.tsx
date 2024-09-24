@@ -1,6 +1,6 @@
 import './App.css';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Board } from './components/Board';
 import { BoardHeader } from './components/BoardHeader';
@@ -20,9 +20,13 @@ import {
 function App() {
   const [grid, setGrid] = useState<number[][]>(() => {
     const storedGrid = localStorage.getItem('grid'); // 게임판 유지 위한
-    return storedGrid !== null
-      ? (JSON.parse(storedGrid) as number[][]) // local storage 데이터가 string 형태여서
-      : initializeGrid();
+    try {
+      return storedGrid !== null
+        ? (JSON.parse(storedGrid) as number[][])
+        : initializeGrid();
+    } catch {
+      return initializeGrid();
+    }
   });
 
   const [score, setScore] = useState<number>(0);
@@ -32,55 +36,63 @@ function App() {
     const storedBestScore = localStorage.getItem('bestScore');
     return storedBestScore !== null ? Number(storedBestScore) : 0;
   });
-  const [gameIsOver, setGameIsOver] = useState<boolean>(false);
-  const [gameIsWon, setGameWon] = useState<boolean>(false);
 
   // undo 기능을 위한 prev Tracking
-  const previousGridRef = useRef<number[][]>([]);
-  const previousScoreRef = useRef<number>(0);
+  const previousStateRef = useRef<{ grid: number[][]; score: number }>({
+    grid: [],
+    score: 0,
+  });
 
-  const resetGame = () => {
+  const persistState = useCallback(
+    (key: string, value: object | string | number | boolean | null) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    },
+    [],
+  );
+
+  const resetGame = useCallback(() => {
     const newGrid = initializeGrid();
     setGrid(newGrid);
     scoreRef.current = 0;
     setScore(0);
-    setGameIsOver(false);
-    setGameWon(false);
-    localStorage.setItem('grid', JSON.stringify(newGrid));
-  };
+    persistState('grid', newGrid);
+  }, [persistState]);
 
-  const undo = () => {
-    if (previousGridRef.current.length > 0) {
-      setGrid(previousGridRef.current);
-      setScore(previousScoreRef.current);
-      scoreRef.current = previousScoreRef.current;
+  const undo = useCallback(() => {
+    if (previousStateRef.current.grid.length > 0) {
+      setGrid(previousStateRef.current.grid);
+      setScore(previousStateRef.current.score);
+      scoreRef.current = previousStateRef.current.score;
     }
-  };
+  }, []);
 
-  // 점수 바뀌 때마다 최고점 확인 및 업데이트
+  // 점수 바뀔 때마다 최고점 확인 및 업데이트
   useEffect(() => {
     if (score > bestScore) {
       setBestScore(score);
-      localStorage.setItem('bestScore', String(score));
+      persistState('bestScore', score);
     }
-  }, [score, bestScore]);
+  }, [score, bestScore, persistState]);
 
   // 점수판 유지
   useEffect(() => {
-    localStorage.setItem('grid', JSON.stringify(grid));
-  }, [grid]);
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameIsOver || gameIsWon) return;
-
+    persistState('grid', grid);
+  }, [grid, persistState]);
+  // 게임 종료 및 승리 확인
+  const isGameOver = gameOver(grid);
+  const isGameWon = gameWon(grid);
+  const handleKeyPress = useCallback(
+    (e: KeyboardEvent) => {
+      if (isGameOver || isGameWon) return;
       let moved = false;
       let currentGrid = grid;
       let scoreToAdd = 0;
 
       //undo 을 위한 grid 및 점수 저장
-      previousGridRef.current = JSON.parse(JSON.stringify(grid)) as number[][];
-      previousScoreRef.current = scoreRef.current;
+      previousStateRef.current.grid = JSON.parse(
+        JSON.stringify(grid),
+      ) as number[][];
+      previousStateRef.current.score = scoreRef.current;
 
       switch (e.key) {
         case 'ArrowUp':
@@ -105,21 +117,17 @@ function App() {
 
         scoreRef.current += scoreToAdd;
         setScore(scoreRef.current);
-
-        if (gameOver(currentGrid)) {
-          setGameIsOver(true);
-        }
-        if (gameWon(currentGrid)) {
-          setGameWon(true);
-        }
       }
-    };
+    },
+    [grid, isGameOver, isGameWon],
+  );
 
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [grid, gameIsOver, gameIsWon]);
+  }, [handleKeyPress]);
 
   return (
     <>
@@ -127,8 +135,8 @@ function App() {
       <div className="game-container">
         <BoardHeader resetGame={resetGame} undo={undo} />
         <Board grid={grid} />
-        {gameIsOver && <Overlay message="Game Over!" resetGame={resetGame} />}
-        {gameIsWon && <Overlay message="You Win!" resetGame={resetGame} />}
+        {isGameOver && <Overlay message="Game Over!" resetGame={resetGame} />}
+        {isGameWon && <Overlay message="You Win!" resetGame={resetGame} />}
       </div>
     </>
   );
