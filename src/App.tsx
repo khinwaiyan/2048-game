@@ -29,8 +29,13 @@ function App() {
     }
   });
 
-  const [score, setScore] = useState<number>(0);
-  const scoreRef = useRef<number>(0); // UI re rendering 줄이기 위한
+  // Restore score from localStorage on load
+  const [score, setScore] = useState<number>(() => {
+    const storedScore = localStorage.getItem('currentScore');
+    return storedScore !== null ? Number(storedScore) : 0;
+  });
+
+  const scoreRef = useRef<number>(score); // Keep track of score without re-rendering
 
   const [bestScore, setBestScore] = useState<number>(() => {
     const storedBestScore = localStorage.getItem('bestScore');
@@ -42,6 +47,15 @@ function App() {
     grid: [],
     score: 0,
   });
+  useEffect(() => {
+    const storedPrevState = localStorage.getItem('previousState');
+    if (storedPrevState !== null) {
+      previousStateRef.current = JSON.parse(storedPrevState) as {
+        grid: number[][];
+        score: number;
+      };
+    }
+  }, []);
 
   const persistState = useCallback(
     (key: string, value: object | string | number | boolean | null) => {
@@ -55,7 +69,8 @@ function App() {
     setGrid(newGrid);
     scoreRef.current = 0;
     setScore(0);
-    previousStateRef.current = { grid: [], score: 0 };
+    previousStateRef.current = { grid: [], score: 0 }; // reset 할때 undo 막기
+    persistState('previousState', previousStateRef.current);
     persistState('grid', newGrid);
   }, [persistState]);
 
@@ -64,8 +79,10 @@ function App() {
       setGrid(previousStateRef.current.grid);
       setScore(previousStateRef.current.score);
       scoreRef.current = previousStateRef.current.score;
+      persistState('grid', previousStateRef.current.grid);
+      persistState('currentScore', previousStateRef.current.score);
     }
-  }, []);
+  }, [persistState]);
 
   // 점수 바뀔 때마다 최고점 확인 및 업데이트
   useEffect(() => {
@@ -73,15 +90,18 @@ function App() {
       setBestScore(score);
       persistState('bestScore', score);
     }
+    persistState('currentScore', scoreRef.current);
   }, [score, bestScore, persistState]);
 
   // 점수판 유지
   useEffect(() => {
     persistState('grid', grid);
   }, [grid, persistState]);
+
   // 게임 종료 및 승리 확인
   const isGameOver = gameOver(grid);
   const isGameWon = gameWon(grid);
+
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
       if (isGameOver || isGameWon) return;
@@ -94,6 +114,8 @@ function App() {
         JSON.stringify(grid),
       ) as number[][];
       previousStateRef.current.score = scoreRef.current;
+
+      persistState('previousState', previousStateRef.current); // Save previous state for undo
 
       switch (e.key) {
         case 'ArrowUp':
@@ -120,7 +142,7 @@ function App() {
         setScore(scoreRef.current);
       }
     },
-    [grid, isGameOver, isGameWon],
+    [grid, isGameOver, isGameWon, persistState],
   );
 
   useEffect(() => {
