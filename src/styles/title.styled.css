@@ -1,7 +1,7 @@
 .title {
   font-size: 36px;
   font-weight: bold;
-  color: #776e65;
+  color: #1d3557;
 }
 
 .scoreboard {
@@ -10,7 +10,7 @@
   gap: 10px;
 }
 .scoreboard div {
-  background-color: #edc22e;
+  background-color: #1d3557;
   padding: 10px 20px;
   border-radius: 5px;
   font-size: 18px;

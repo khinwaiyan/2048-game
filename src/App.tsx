@@ -130,7 +130,7 @@ function App() {
   }, [handleKeyPress]);
 
   return (
-    <>
+    <div className="Wrapper">
       <Title score={score} bestScore={bestScore} />
       <div className="game-container">
         <BoardHeader resetGame={resetGame} undo={undo} />
@@ -138,7 +138,7 @@ function App() {
         {isGameOver && <Overlay message="Game Over!" resetGame={resetGame} />}
         {isGameWon && <Overlay message="You Win!" resetGame={resetGame} />}
       </div>
-    </>
+    </div>
   );
 }
 
