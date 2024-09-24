@@ -19,14 +19,14 @@ import {
 
 function App() {
   const [grid, setGrid] = useState<number[][]>(() => {
-    const storedGrid = localStorage.getItem('grid');
+    const storedGrid = localStorage.getItem('grid'); // 게임판 유지 위한
     return storedGrid !== null
-      ? (JSON.parse(storedGrid) as number[][])
+      ? (JSON.parse(storedGrid) as number[][]) // local storage 데이터가 string 형태여서
       : initializeGrid();
   });
 
   const [score, setScore] = useState<number>(0);
-  const scoreRef = useRef<number>(0); // Use useRef for internal score tracking
+  const scoreRef = useRef<number>(0); // UI re rendering 줄이기 위한
 
   const [bestScore, setBestScore] = useState<number>(() => {
     const storedBestScore = localStorage.getItem('bestScore');
@@ -35,7 +35,7 @@ function App() {
   const [gameIsOver, setGameIsOver] = useState<boolean>(false);
   const [gameIsWon, setGameWon] = useState<boolean>(false);
 
-  // Track the previous state of the grid and score for the Undo feature
+  // undo 기능을 위한 prev Tracking
   const previousGridRef = useRef<number[][]>([]);
   const previousScoreRef = useRef<number>(0);
 
@@ -51,13 +51,13 @@ function App() {
 
   const undo = () => {
     if (previousGridRef.current.length > 0) {
-      setGrid(previousGridRef.current); // Restore the previous grid
-      setScore(previousScoreRef.current); // Restore the previous score
-      scoreRef.current = previousScoreRef.current; // Sync internal score with the restored state
+      setGrid(previousGridRef.current);
+      setScore(previousScoreRef.current);
+      scoreRef.current = previousScoreRef.current;
     }
   };
 
-  // Update the best score whenever the score changes
+  // 점수 바뀌 때마다 최고점 확인 및 업데이트
   useEffect(() => {
     if (score > bestScore) {
       setBestScore(score);
@@ -65,7 +65,7 @@ function App() {
     }
   }, [score, bestScore]);
 
-  // Persist the grid state in localStorage whenever it changes
+  // 점수판 유지
   useEffect(() => {
     localStorage.setItem('grid', JSON.stringify(grid));
   }, [grid]);
@@ -78,9 +78,9 @@ function App() {
       let currentGrid = grid;
       let scoreToAdd = 0;
 
-      // Save the current grid and score before making a move (for undo purposes)
+      //undo 을 위한 grid 및 점수 저장
       previousGridRef.current = JSON.parse(JSON.stringify(grid)) as number[][];
-      previousScoreRef.current = scoreRef.current; // Store the current score
+      previousScoreRef.current = scoreRef.current;
 
       switch (e.key) {
         case 'ArrowUp':
@@ -103,8 +103,8 @@ function App() {
         currentGrid = addTile(currentGrid);
         setGrid(currentGrid);
 
-        scoreRef.current += scoreToAdd; // Update internal score
-        setScore(scoreRef.current); // Update displayed score
+        scoreRef.current += scoreToAdd;
+        setScore(scoreRef.current);
 
         if (gameOver(currentGrid)) {
           setGameIsOver(true);
