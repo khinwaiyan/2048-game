@@ -29,13 +29,13 @@ function App() {
     }
   });
 
-  // Restore score from localStorage on load
+  // 리로딩 할때 점수 유지
   const [score, setScore] = useState<number>(() => {
     const storedScore = localStorage.getItem('currentScore');
     return storedScore !== null ? Number(storedScore) : 0;
   });
 
-  const scoreRef = useRef<number>(score); // Keep track of score without re-rendering
+  const scoreRef = useRef<number>(score); // re-rendering 없이 점수 store
 
   const [bestScore, setBestScore] = useState<number>(() => {
     const storedBestScore = localStorage.getItem('bestScore');
@@ -115,7 +115,7 @@ function App() {
       ) as number[][];
       previousStateRef.current.score = scoreRef.current;
 
-      persistState('previousState', previousStateRef.current); // Save previous state for undo
+      persistState('previousState', previousStateRef.current); // undo 를 위한 prev state
 
       switch (e.key) {
         case 'ArrowUp':
