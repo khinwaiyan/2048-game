@@ -1,0 +1,33 @@
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 36px;
+  z-index: 1000; /* Make sure it appears on top of everything */
+}
+
+.overlay h2 {
+  margin-bottom: 20px;
+}
+
+.overlay button {
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+  background-color: #8f7a66;
+  color: white;
+  border: none;
+  border-radius: 5px;
+}
+
+.overlay button:hover {
+  background-color: #a18772;
+}
