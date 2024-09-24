@@ -43,17 +43,20 @@ function App() {
   });
 
   // undo 기능을 위한 prev Tracking
-  const previousStateRef = useRef<{ grid: number[][]; score: number }>({
+  const [previousState, setPreviousState] = useState<{
+    grid: number[][];
+    score: number;
+  }>({
     grid: [],
     score: 0,
   });
+
   useEffect(() => {
     const storedPrevState = localStorage.getItem('previousState');
     if (storedPrevState !== null) {
-      previousStateRef.current = JSON.parse(storedPrevState) as {
-        grid: number[][];
-        score: number;
-      };
+      setPreviousState(
+        JSON.parse(storedPrevState) as { grid: number[][]; score: number },
+      );
     }
   }, []);
 
@@ -69,20 +72,20 @@ function App() {
     setGrid(newGrid);
     scoreRef.current = 0;
     setScore(0);
-    previousStateRef.current = { grid: [], score: 0 }; // reset 할때 undo 막기
-    persistState('previousState', previousStateRef.current);
+    setPreviousState({ grid: [], score: 0 }); // reset 할때 undo 막기
+    persistState('previousState', { grid: [], score: 0 });
     persistState('grid', newGrid);
   }, [persistState]);
 
   const undo = useCallback(() => {
-    if (previousStateRef.current.grid.length > 0) {
-      setGrid(previousStateRef.current.grid);
-      setScore(previousStateRef.current.score);
-      scoreRef.current = previousStateRef.current.score;
-      persistState('grid', previousStateRef.current.grid);
-      persistState('currentScore', previousStateRef.current.score);
+    if (previousState.grid.length > 0) {
+      setGrid(previousState.grid);
+      setScore(previousState.score);
+      scoreRef.current = previousState.score;
+      persistState('grid', previousState.grid);
+      persistState('currentScore', previousState.score);
     }
-  }, [persistState]);
+  }, [persistState, previousState]);
 
   // 점수 바뀔 때마다 최고점 확인 및 업데이트
   useEffect(() => {
@@ -110,12 +113,15 @@ function App() {
       let scoreToAdd = 0;
 
       //undo 을 위한 grid 및 점수 저장
-      previousStateRef.current.grid = JSON.parse(
-        JSON.stringify(grid),
-      ) as number[][];
-      previousStateRef.current.score = scoreRef.current;
+      setPreviousState({
+        grid: JSON.parse(JSON.stringify(grid)) as number[][],
+        score: scoreRef.current,
+      });
 
-      persistState('previousState', previousStateRef.current); // undo 를 위한 prev state
+      persistState('previousState', {
+        grid: JSON.parse(JSON.stringify(grid)) as number[][],
+        score: scoreRef.current,
+      }); // undo 를 위한 prev state
 
       switch (e.key) {
         case 'ArrowUp':
