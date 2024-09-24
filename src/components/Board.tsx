@@ -1,5 +1,8 @@
 import '../styles/board.styled.css';
-export const Board = () => {
+type BoardProps = {
+  grid: number[][];
+};
+export const Board = ({ grid }: BoardProps) => {
   return (
     <div className="grid-container">
       {grid.map((row, i) => (

@@ -1,11 +1,15 @@
 import '../styles/title.styled.css';
-export const Title = () => {
+type TitleProps = {
+  score: number;
+  bestScore: number;
+};
+export const Title = ({ score, bestScore }: TitleProps) => {
   return (
     <>
       <div className="title">2048</div>
       <div className="scoreboard">
-        <div>Score: 0</div>
-        <div>Best: 0</div>
+        <div>Score: {score}</div>
+        <div>Best: {bestScore}</div>
       </div>
     </>
   );

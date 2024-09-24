@@ -1,4 +1,4 @@
-type Grid = number[][];
+export type Grid = number[][];
 export const initializeGrid = () => {
   //0 으로 채워진 4X4 grid
   let grid: Grid = Array.from({ length: 4 }, () => Array<number>(4).fill(0));
@@ -38,8 +38,9 @@ export const addTile = (grid: Grid): Grid => {
   return grid;
 };
 
-export const moveLeft = (grid: Grid): [Grid, boolean] => {
+export const moveLeft = (grid: Grid): [Grid, boolean, number] => {
   let moved = false;
+  let scoreToAdd = 0;
 
   const newGrid: Grid = grid.map((row) => {
     //각 row 마다 0 아니 tile filter
@@ -52,6 +53,7 @@ export const moveLeft = (grid: Grid): [Grid, boolean] => {
       // tiles 이 같을때
       if (currentTile !== undefined && currentTile === nextTile) {
         newRow[i] = currentTile * 2; // 머지하기
+        scoreToAdd += newRow[i] ?? 0;
         newRow[i + 1] = 0; // 머지돼서 비는 mark
       }
     }
@@ -70,14 +72,14 @@ export const moveLeft = (grid: Grid): [Grid, boolean] => {
     return shiftedRow;
   });
 
-  return [newGrid, moved];
+  return [newGrid, moved, scoreToAdd];
 };
 
 //moveLeft 를 reverse 하기
-export const moveRight = (grid: Grid): [Grid, boolean] => {
+export const moveRight = (grid: Grid): [Grid, boolean, number] => {
   const reversedGrid = grid.map((row) => row.slice().reverse()); // shallow copy 만들고 reverse 하기
-  const [movedGrid, moved] = moveLeft(reversedGrid);
-  return [movedGrid.map((row) => row.reverse()), moved];
+  const [movedGrid, moved, scoreToAdd] = moveLeft(reversedGrid);
+  return [movedGrid.map((row) => row.reverse()), moved, scoreToAdd];
 };
 
 export const transpose = (grid: Grid): Grid => {
@@ -87,16 +89,16 @@ export const transpose = (grid: Grid): Grid => {
   return [];
 };
 
-export const moveUp = (grid: Grid): [Grid, boolean] => {
+export const moveUp = (grid: Grid): [Grid, boolean, number] => {
   const transposedGrid = transpose(grid);
-  const [movedGrid, moved] = moveLeft(transposedGrid);
-  return [transpose(movedGrid), moved];
+  const [movedGrid, moved, scoreToAdd] = moveLeft(transposedGrid);
+  return [transpose(movedGrid), moved, scoreToAdd];
 };
 
-export const moveDown = (grid: Grid): [Grid, boolean] => {
+export const moveDown = (grid: Grid): [Grid, boolean, number] => {
   const transposedGrid = transpose(grid);
-  const [movedGrid, moved] = moveRight(transposedGrid);
-  return [transpose(movedGrid), moved];
+  const [movedGrid, moved, scoreToAdd] = moveRight(transposedGrid);
+  return [transpose(movedGrid), moved, scoreToAdd];
 };
 
 export const gameOver = (grid: Grid): boolean => {
@@ -114,5 +116,8 @@ export const gameOver = (grid: Grid): boolean => {
       }
     }
   }
-  return false;
+  return true;
+};
+export const gameWon = (grid: number[][]): boolean => {
+  return grid.some((row) => row.some((cell) => cell >= 128));
 };
