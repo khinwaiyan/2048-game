@@ -1,0 +1,18 @@
+.title {
+  font-size: 36px;
+  font-weight: bold;
+  color: #776e65;
+}
+
+.scoreboard {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.scoreboard div {
+  background-color: #edc22e;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 18px;
+  color: white;
+}
