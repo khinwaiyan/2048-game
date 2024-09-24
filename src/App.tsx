@@ -55,6 +55,7 @@ function App() {
     setGrid(newGrid);
     scoreRef.current = 0;
     setScore(0);
+    previousStateRef.current = { grid: [], score: 0 };
     persistState('grid', newGrid);
   }, [persistState]);
 
