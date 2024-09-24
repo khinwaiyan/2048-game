@@ -1,6 +1,6 @@
 import './App.css';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Board } from './components/Board';
 import { BoardHeader } from './components/BoardHeader';
@@ -26,6 +26,8 @@ function App() {
   });
 
   const [score, setScore] = useState<number>(0);
+  const scoreRef = useRef<number>(0); // Use useRef for internal score tracking
+
   const [bestScore, setBestScore] = useState<number>(() => {
     const storedBestScore = localStorage.getItem('bestScore');
     return storedBestScore !== null ? Number(storedBestScore) : 0;
@@ -33,13 +35,26 @@ function App() {
   const [gameIsOver, setGameIsOver] = useState<boolean>(false);
   const [gameIsWon, setGameWon] = useState<boolean>(false);
 
+  // Track the previous state of the grid and score for the Undo feature
+  const previousGridRef = useRef<number[][]>([]);
+  const previousScoreRef = useRef<number>(0);
+
   const resetGame = () => {
     const newGrid = initializeGrid();
     setGrid(newGrid);
+    scoreRef.current = 0;
     setScore(0);
     setGameIsOver(false);
     setGameWon(false);
     localStorage.setItem('grid', JSON.stringify(newGrid));
+  };
+
+  const undo = () => {
+    if (previousGridRef.current.length > 0) {
+      setGrid(previousGridRef.current); // Restore the previous grid
+      setScore(previousScoreRef.current); // Restore the previous score
+      scoreRef.current = previousScoreRef.current; // Sync internal score with the restored state
+    }
   };
 
   // Update the best score whenever the score changes
@@ -63,6 +78,10 @@ function App() {
       let currentGrid = grid;
       let scoreToAdd = 0;
 
+      // Save the current grid and score before making a move (for undo purposes)
+      previousGridRef.current = JSON.parse(JSON.stringify(grid)) as number[][];
+      previousScoreRef.current = scoreRef.current; // Store the current score
+
       switch (e.key) {
         case 'ArrowUp':
           [currentGrid, moved, scoreToAdd] = moveUp(currentGrid);
@@ -84,8 +103,8 @@ function App() {
         currentGrid = addTile(currentGrid);
         setGrid(currentGrid);
 
-        // Update the score by adding the merged tile value
-        setScore((prevScore) => prevScore + scoreToAdd);
+        scoreRef.current += scoreToAdd; // Update internal score
+        setScore(scoreRef.current); // Update displayed score
 
         if (gameOver(currentGrid)) {
           setGameIsOver(true);
@@ -106,7 +125,7 @@ function App() {
     <>
       <Title score={score} bestScore={bestScore} />
       <div className="game-container">
-        <BoardHeader resetGame={resetGame} />
+        <BoardHeader resetGame={resetGame} undo={undo} />
         <Board grid={grid} />
         {gameIsOver && <Overlay message="Game Over!" resetGame={resetGame} />}
         {gameIsWon && <Overlay message="You Win!" resetGame={resetGame} />}
