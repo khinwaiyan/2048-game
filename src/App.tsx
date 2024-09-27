@@ -43,22 +43,14 @@ function App() {
   });
 
   // undo 기능을 위한 prev Tracking
-  const [previousState, setPreviousState] = useState<{
-    grid: number[][];
-    score: number;
-  }>({
-    grid: [],
-    score: 0,
-  });
-
-  useEffect(() => {
-    const storedPrevState = localStorage.getItem('previousState');
-    if (storedPrevState !== null) {
-      setPreviousState(
-        JSON.parse(storedPrevState) as { grid: number[][]; score: number },
-      );
-    }
-  }, []);
+  const [history, setHistory] = useState<{ grid: number[][]; score: number }[]>(
+    () => {
+      const storedHistory = localStorage.getItem('history');
+      return storedHistory !== null
+        ? (JSON.parse(storedHistory) as { grid: number[][]; score: number }[])
+        : [];
+    },
+  );
 
   const persistState = useCallback(
     (key: string, value: object | string | number | boolean | null) => {
@@ -72,20 +64,27 @@ function App() {
     setGrid(newGrid);
     scoreRef.current = 0;
     setScore(0);
-    setPreviousState({ grid: [], score: 0 }); // reset 할때 undo 막기
+    setHistory([]); // reset 할때 undo 막기
     persistState('previousState', { grid: [], score: 0 });
     persistState('grid', newGrid);
   }, [persistState]);
 
   const undo = useCallback(() => {
-    if (previousState.grid.length > 0) {
-      setGrid(previousState.grid);
-      setScore(previousState.score);
-      scoreRef.current = previousState.score;
-      persistState('grid', previousState.grid);
-      persistState('currentScore', previousState.score);
+    if (history.length > 0) {
+      const previousState = history[history.length - 1];
+
+      if (previousState !== undefined) {
+        setGrid(previousState.grid);
+        setScore(previousState.score);
+        scoreRef.current = previousState.score;
+        const newHistory = history.slice(0, -1);
+        setHistory(newHistory);
+        persistState('history', newHistory);
+        persistState('grid', previousState.grid);
+        persistState('currentScore', previousState.score);
+      }
     }
-  }, [persistState, previousState]);
+  }, [history, persistState]);
 
   // 점수 바뀔 때마다 최고점 확인 및 업데이트
   useEffect(() => {
@@ -113,15 +112,21 @@ function App() {
       let scoreToAdd = 0;
 
       //undo 을 위한 grid 및 점수 저장
-      setPreviousState({
-        grid: JSON.parse(JSON.stringify(grid)) as number[][],
-        score: scoreRef.current,
-      });
+      setHistory((prevHistory) => [
+        ...prevHistory,
+        {
+          grid: JSON.parse(JSON.stringify(grid)) as number[][],
+          score: scoreRef.current,
+        },
+      ]);
 
-      persistState('previousState', {
-        grid: JSON.parse(JSON.stringify(grid)) as number[][],
-        score: scoreRef.current,
-      }); // undo 를 위한 prev state
+      persistState('history', [
+        ...history,
+        {
+          grid: JSON.parse(JSON.stringify(grid)) as number[][],
+          score: scoreRef.current,
+        },
+      ]); // undo 를 위한 prev state
 
       switch (e.key) {
         case 'ArrowUp':
@@ -148,7 +153,7 @@ function App() {
         setScore(scoreRef.current);
       }
     },
-    [grid, isGameOver, isGameWon, persistState],
+    [grid, history, isGameOver, isGameWon, persistState],
   );
 
   useEffect(() => {
