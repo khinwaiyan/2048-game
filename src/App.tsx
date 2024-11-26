@@ -28,43 +28,21 @@ type PrevState = {
   score: number;
 };
 function App() {
-  const [grid, setGrid] = useState<number[][]>(() => {
-    const storedGrid = localStorage.getItem('grid'); // 게임판 유지 위한
-    try {
-      return storedGrid !== null
-        ? (JSON.parse(storedGrid) as number[][])
-        : initializeGrid();
-    } catch {
-      return initializeGrid();
-    }
-  });
+  const [grid, setGrid] = usePersistedState('grid', initializeGrid());
 
   // 리로딩 할때 점수 유지
-  const [score, setScore] = useState<number>(() => {
-    const storedScore = localStorage.getItem('currentScore');
-    return storedScore !== null ? Number(storedScore) : 0;
-  });
+  const [score, setScore] = usePersistedState('currentScore', 0);
 
   const scoreRef = useRef<number>(score); // re-rendering 없이 점수 store
 
-  const [bestScore, setBestScore] = useState<number>(() => {
-    const storedBestScore = localStorage.getItem('bestScore');
-    return storedBestScore !== null ? Number(storedBestScore) : 0;
-  });
+  const [bestScore, setBestScore] = usePersistedState('bestScore', 0);
 
   // undo 기능을 위한 prev Tracking
-  const [history, setHistory] = useState<{ grid: number[][]; score: number }[]>(
-    () => {
-      const storedHistory = localStorage.getItem('history');
-      return storedHistory !== null
-        ? (JSON.parse(storedHistory) as { grid: number[][]; score: number }[])
-        : [];
-    },
-  );
+  const [history, setHistory] = usePersistedState<PrevState[]>('history', []);
 
   const undoCallback = useCallback(() => {
     undo(history, setGrid, setScore, scoreRef, setHistory);
-  }, [history]);
+  }, [history, setGrid, setScore, setHistory]);
 
   const resetGameCallback = () => {
     resetGame(setGrid, scoreRef, setScore, setHistory);
@@ -77,7 +55,7 @@ function App() {
       persistState('bestScore', score);
     }
     persistState('currentScore', scoreRef.current);
-  }, [score, bestScore]);
+  }, [score, bestScore, setBestScore]);
 
   // 점수판 유지
   useEffect(() => {
@@ -102,7 +80,7 @@ function App() {
         isGameWon,
       );
     },
-    [grid, history, isGameOver, isGameWon],
+    [grid, history, isGameOver, isGameWon, setGrid, setHistory, setScore],
   );
 
   useEffect(() => {
@@ -131,7 +109,7 @@ function App() {
 
 export default App;
 
-// callbacks.ts
+// callbacks
 
 export const persistState = (
   key: string,
@@ -237,3 +215,21 @@ export const handleKeyPress = (
     setScore(scoreRef.current);
   }
 };
+
+function usePersistedState<T>(
+  key: string,
+  initialValue: T,
+): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState<T>(() => {
+    const persistedValue = localStorage.getItem(key);
+    return persistedValue !== null
+      ? (JSON.parse(persistedValue) as T)
+      : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(state));
+  }, [key, state]);
+
+  return [state, setState];
+}
