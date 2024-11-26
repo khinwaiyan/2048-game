@@ -1,6 +1,12 @@
 import './App.css';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { Board } from './components/Board';
 import { BoardHeader } from './components/BoardHeader';
@@ -17,6 +23,10 @@ import {
   moveUp,
 } from './utils/gameLogic';
 
+type PrevState = {
+  grid: number[][];
+  score: number;
+};
 function App() {
   const [grid, setGrid] = useState<number[][]>(() => {
     const storedGrid = localStorage.getItem('grid'); // 게임판 유지 위한
@@ -52,39 +62,13 @@ function App() {
     },
   );
 
-  const persistState = useCallback(
-    (key: string, value: object | string | number | boolean | null) => {
-      localStorage.setItem(key, JSON.stringify(value));
-    },
-    [],
-  );
+  const undoCallback = useCallback(() => {
+    undo(history, setGrid, setScore, scoreRef, setHistory);
+  }, [history]);
 
-  const resetGame = useCallback(() => {
-    const newGrid = initializeGrid();
-    setGrid(newGrid);
-    scoreRef.current = 0;
-    setScore(0);
-    setHistory([]); // reset 할때 undo 막기
-    persistState('previousState', { grid: [], score: 0 });
-    persistState('grid', newGrid);
-  }, [persistState]);
-
-  const undo = useCallback(() => {
-    if (history.length > 0) {
-      const previousState = history[history.length - 1];
-
-      if (previousState !== undefined) {
-        setGrid(previousState.grid);
-        setScore(previousState.score);
-        scoreRef.current = previousState.score;
-        const newHistory = history.slice(0, -1);
-        setHistory(newHistory);
-        persistState('history', newHistory);
-        persistState('grid', previousState.grid);
-        persistState('currentScore', previousState.score);
-      }
-    }
-  }, [history, persistState]);
+  const resetGameCallback = () => {
+    resetGame(setGrid, scoreRef, setScore, setHistory);
+  };
 
   // 점수 바뀔 때마다 최고점 확인 및 업데이트
   useEffect(() => {
@@ -93,87 +77,163 @@ function App() {
       persistState('bestScore', score);
     }
     persistState('currentScore', scoreRef.current);
-  }, [score, bestScore, persistState]);
+  }, [score, bestScore]);
 
   // 점수판 유지
   useEffect(() => {
     persistState('grid', grid);
-  }, [grid, persistState]);
+  }, [grid]);
 
   // 게임 종료 및 승리 확인
   const isGameOver = gameOver(grid);
   const isGameWon = gameWon(grid);
 
-  const handleKeyPress = useCallback(
+  const handleKeyPressCallback = useCallback(
     (e: KeyboardEvent) => {
-      if (isGameOver || isGameWon) return;
-      let moved = false;
-      let currentGrid = grid;
-      let scoreToAdd = 0;
-
-      //undo 을 위한 grid 및 점수 저장
-      setHistory((prevHistory) => [
-        ...prevHistory,
-        {
-          grid: JSON.parse(JSON.stringify(grid)) as number[][],
-          score: scoreRef.current,
-        },
-      ]);
-
-      persistState('history', [
-        ...history,
-        {
-          grid: JSON.parse(JSON.stringify(grid)) as number[][],
-          score: scoreRef.current,
-        },
-      ]); // undo 를 위한 prev state
-
-      switch (e.key) {
-        case 'ArrowUp':
-          [currentGrid, moved, scoreToAdd] = moveUp(currentGrid);
-          break;
-        case 'ArrowDown':
-          [currentGrid, moved, scoreToAdd] = moveDown(currentGrid);
-          break;
-        case 'ArrowLeft':
-          [currentGrid, moved, scoreToAdd] = moveLeft(currentGrid);
-          break;
-        case 'ArrowRight':
-          [currentGrid, moved, scoreToAdd] = moveRight(currentGrid);
-          break;
-        default:
-          return;
-      }
-
-      if (moved) {
-        currentGrid = addTile(currentGrid);
-        setGrid(currentGrid);
-
-        scoreRef.current += scoreToAdd;
-        setScore(scoreRef.current);
-      }
+      handleKeyPress(
+        e,
+        grid,
+        setGrid,
+        setHistory,
+        history,
+        scoreRef,
+        setScore,
+        isGameOver,
+        isGameWon,
+      );
     },
-    [grid, history, isGameOver, isGameWon, persistState],
+    [grid, history, isGameOver, isGameWon],
   );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress);
+    window.addEventListener('keydown', handleKeyPressCallback);
     return () => {
-      window.removeEventListener('keydown', handleKeyPress);
+      window.removeEventListener('keydown', handleKeyPressCallback);
     };
-  }, [handleKeyPress]);
+  }, [handleKeyPressCallback]);
 
   return (
     <div className="Wrapper">
       <Title score={score} bestScore={bestScore} />
       <div className="game-container">
-        <BoardHeader resetGame={resetGame} undo={undo} />
+        <BoardHeader resetGame={resetGameCallback} undo={undoCallback} />
         <Board grid={grid} />
-        {isGameOver && <Overlay message="Game Over!" resetGame={resetGame} />}
-        {isGameWon && <Overlay message="You Win!" resetGame={resetGame} />}
+        {isGameOver && (
+          <Overlay message="Game Over!" resetGame={resetGameCallback} />
+        )}
+        {isGameWon && (
+          <Overlay message="You Win!" resetGame={resetGameCallback} />
+        )}
       </div>
     </div>
   );
 }
 
 export default App;
+
+// callbacks.ts
+
+export const persistState = (
+  key: string,
+  value: object | string | number | boolean | null,
+) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+export const resetGame = (
+  setGrid: (grid: number[][]) => void,
+  scoreRef: MutableRefObject<number>,
+  setScore: (score: number) => void,
+  setHistory: (history: PrevState[]) => void,
+) => {
+  const newGrid = initializeGrid();
+  setGrid(newGrid);
+  scoreRef.current = 0;
+  setScore(0);
+  setHistory([]);
+  persistState('previousState', { grid: [], score: 0 });
+  persistState('grid', newGrid);
+};
+
+export const undo = (
+  history: PrevState[],
+  setGrid: (grid: number[][]) => void,
+  setScore: (score: number) => void,
+  scoreRef: MutableRefObject<number>,
+  setHistory: (history: PrevState[]) => void,
+) => {
+  if (history.length === 0) return;
+
+  const previousState = history[history.length - 1];
+  if (previousState === undefined) return;
+
+  setGrid(previousState.grid);
+  setScore(previousState.score);
+  scoreRef.current = previousState.score;
+
+  const newHistory = history.slice(0, -1);
+  setHistory(newHistory);
+  persistState('history', newHistory);
+  persistState('grid', previousState.grid);
+  persistState('currentScore', previousState.score);
+};
+
+export const handleKeyPress = (
+  e: KeyboardEvent,
+  grid: number[][],
+  setGrid: (grid: number[][]) => void,
+  setHistory: (history: React.SetStateAction<PrevState[]>) => void,
+  history: PrevState[],
+  scoreRef: MutableRefObject<number>,
+  setScore: (score: number) => void,
+  isGameOver: boolean,
+  isGameWon: boolean,
+) => {
+  if (isGameOver || isGameWon) return;
+
+  let moved = false;
+  let currentGrid = grid;
+  let scoreToAdd = 0;
+
+  //undo 을 위한 grid 및 점수 저장
+  setHistory((prevHistory) => [
+    ...prevHistory,
+    {
+      grid: JSON.parse(JSON.stringify(grid)) as number[][],
+      score: scoreRef.current,
+    },
+  ]);
+
+  persistState('history', [
+    ...history,
+    {
+      grid: JSON.parse(JSON.stringify(grid)) as number[][],
+      score: scoreRef.current,
+    },
+  ]);
+
+  switch (e.key) {
+    case 'ArrowUp':
+      [currentGrid, moved, scoreToAdd] = moveUp(currentGrid);
+      break;
+    case 'ArrowDown':
+      [currentGrid, moved, scoreToAdd] = moveDown(currentGrid);
+      break;
+    case 'ArrowLeft':
+      [currentGrid, moved, scoreToAdd] = moveLeft(currentGrid);
+      break;
+    case 'ArrowRight':
+      [currentGrid, moved, scoreToAdd] = moveRight(currentGrid);
+      break;
+    default:
+      return;
+  }
+
+  if (moved) {
+    currentGrid = addTile(currentGrid);
+    setGrid(currentGrid);
+
+    scoreRef.current += scoreToAdd;
+    setScore(scoreRef.current);
+  }
+};
