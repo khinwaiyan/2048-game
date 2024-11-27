@@ -100,13 +100,29 @@ const useGame = (): GameState => {
     persistState('grid', grid);
   }, [grid]);
 
+  const getGameLogicForKey = (
+    key: string,
+  ): [(grid: number[][]) => [number[][], boolean, number], boolean] => {
+    switch (key) {
+      case 'ArrowUp':
+        return [moveUp, true];
+      case 'ArrowDown':
+        return [moveDown, true];
+      case 'ArrowLeft':
+        return [moveLeft, true];
+      case 'ArrowRight':
+        return [moveRight, true];
+      default:
+        return [moveUp, false]; // Default case, won't be used due to early return
+    }
+  };
+
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
       if (isGameOver || isGameWon) return;
 
-      let moved = false;
-      let currentGrid = grid;
-      let scoreToAdd = 0;
+      const [moveFunction, isValidKey] = getGameLogicForKey(e.key);
+      if (!isValidKey) return;
 
       setHistory((prevHistory) => [
         ...prevHistory,
@@ -124,26 +140,11 @@ const useGame = (): GameState => {
         },
       ]);
 
-      switch (e.key) {
-        case 'ArrowUp':
-          [currentGrid, moved, scoreToAdd] = moveUp(currentGrid);
-          break;
-        case 'ArrowDown':
-          [currentGrid, moved, scoreToAdd] = moveDown(currentGrid);
-          break;
-        case 'ArrowLeft':
-          [currentGrid, moved, scoreToAdd] = moveLeft(currentGrid);
-          break;
-        case 'ArrowRight':
-          [currentGrid, moved, scoreToAdd] = moveRight(currentGrid);
-          break;
-        default:
-          return;
-      }
+      const [currentGrid, moved, scoreToAdd] = moveFunction(grid);
 
       if (moved) {
-        currentGrid = addTile(currentGrid);
-        setGrid(currentGrid);
+        const newGrid = addTile(currentGrid);
+        setGrid(newGrid);
         scoreRef.current += scoreToAdd;
         setScore(scoreRef.current);
       }
