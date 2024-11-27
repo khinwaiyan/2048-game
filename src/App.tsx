@@ -91,14 +91,9 @@ const useGame = (): GameState => {
   useEffect(() => {
     if (score > bestScore) {
       setBestScore(score);
-      persistState('bestScore', score);
     }
     persistState('currentScore', scoreRef.current);
   }, [score, bestScore, setBestScore]);
-
-  useEffect(() => {
-    persistState('grid', grid);
-  }, [grid]);
 
   const getGameLogicForKey = (
     key: string,
@@ -132,14 +127,6 @@ const useGame = (): GameState => {
         },
       ]);
 
-      persistState('history', [
-        ...history,
-        {
-          grid: JSON.parse(JSON.stringify(grid)) as number[][],
-          score: scoreRef.current,
-        },
-      ]);
-
       const [currentGrid, moved, scoreToAdd] = moveFunction(grid);
 
       if (moved) {
@@ -149,7 +136,7 @@ const useGame = (): GameState => {
         setScore(scoreRef.current);
       }
     },
-    [grid, history, isGameOver, isGameWon, setGrid, setHistory, setScore],
+    [grid, isGameOver, isGameWon, setGrid, setHistory, setScore],
   );
 
   const resetGame = useCallback(() => {
@@ -158,8 +145,6 @@ const useGame = (): GameState => {
     scoreRef.current = 0;
     setScore(0);
     setHistory([]);
-    persistState('previousState', { grid: [], score: 0 });
-    persistState('grid', newGrid);
   }, [setGrid, setScore, setHistory]);
 
   const undo = useCallback(() => {
@@ -174,9 +159,6 @@ const useGame = (): GameState => {
 
     const newHistory = history.slice(0, -1);
     setHistory(newHistory);
-    persistState('history', newHistory);
-    persistState('grid', previousState.grid);
-    persistState('currentScore', previousState.score);
   }, [history, setGrid, setScore, setHistory]);
 
   useEffect(() => {
