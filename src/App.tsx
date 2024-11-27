@@ -1,3 +1,4 @@
+//App.tsx
 import './App.css';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,150 +19,8 @@ import {
 } from './utils/gameLogic';
 
 function App() {
-  const [grid, setGrid] = useState<number[][]>(() => {
-    const storedGrid = localStorage.getItem('grid'); // 게임판 유지 위한
-    try {
-      return storedGrid !== null
-        ? (JSON.parse(storedGrid) as number[][])
-        : initializeGrid();
-    } catch {
-      return initializeGrid();
-    }
-  });
-
-  // 리로딩 할때 점수 유지
-  const [score, setScore] = useState<number>(() => {
-    const storedScore = localStorage.getItem('currentScore');
-    return storedScore !== null ? Number(storedScore) : 0;
-  });
-
-  const scoreRef = useRef<number>(score); // re-rendering 없이 점수 store
-
-  const [bestScore, setBestScore] = useState<number>(() => {
-    const storedBestScore = localStorage.getItem('bestScore');
-    return storedBestScore !== null ? Number(storedBestScore) : 0;
-  });
-
-  // undo 기능을 위한 prev Tracking
-  const [history, setHistory] = useState<{ grid: number[][]; score: number }[]>(
-    () => {
-      const storedHistory = localStorage.getItem('history');
-      return storedHistory !== null
-        ? (JSON.parse(storedHistory) as { grid: number[][]; score: number }[])
-        : [];
-    },
-  );
-
-  const persistState = useCallback(
-    (key: string, value: object | string | number | boolean | null) => {
-      localStorage.setItem(key, JSON.stringify(value));
-    },
-    [],
-  );
-
-  const resetGame = useCallback(() => {
-    const newGrid = initializeGrid();
-    setGrid(newGrid);
-    scoreRef.current = 0;
-    setScore(0);
-    setHistory([]); // reset 할때 undo 막기
-    persistState('previousState', { grid: [], score: 0 });
-    persistState('grid', newGrid);
-  }, [persistState]);
-
-  const undo = useCallback(() => {
-    if (history.length > 0) {
-      const previousState = history[history.length - 1];
-
-      if (previousState !== undefined) {
-        setGrid(previousState.grid);
-        setScore(previousState.score);
-        scoreRef.current = previousState.score;
-        const newHistory = history.slice(0, -1);
-        setHistory(newHistory);
-        persistState('history', newHistory);
-        persistState('grid', previousState.grid);
-        persistState('currentScore', previousState.score);
-      }
-    }
-  }, [history, persistState]);
-
-  // 점수 바뀔 때마다 최고점 확인 및 업데이트
-  useEffect(() => {
-    if (score > bestScore) {
-      setBestScore(score);
-      persistState('bestScore', score);
-    }
-    persistState('currentScore', scoreRef.current);
-  }, [score, bestScore, persistState]);
-
-  // 점수판 유지
-  useEffect(() => {
-    persistState('grid', grid);
-  }, [grid, persistState]);
-
-  // 게임 종료 및 승리 확인
-  const isGameOver = gameOver(grid);
-  const isGameWon = gameWon(grid);
-
-  const handleKeyPress = useCallback(
-    (e: KeyboardEvent) => {
-      if (isGameOver || isGameWon) return;
-      let moved = false;
-      let currentGrid = grid;
-      let scoreToAdd = 0;
-
-      //undo 을 위한 grid 및 점수 저장
-      setHistory((prevHistory) => [
-        ...prevHistory,
-        {
-          grid: JSON.parse(JSON.stringify(grid)) as number[][],
-          score: scoreRef.current,
-        },
-      ]);
-
-      persistState('history', [
-        ...history,
-        {
-          grid: JSON.parse(JSON.stringify(grid)) as number[][],
-          score: scoreRef.current,
-        },
-      ]); // undo 를 위한 prev state
-
-      switch (e.key) {
-        case 'ArrowUp':
-          [currentGrid, moved, scoreToAdd] = moveUp(currentGrid);
-          break;
-        case 'ArrowDown':
-          [currentGrid, moved, scoreToAdd] = moveDown(currentGrid);
-          break;
-        case 'ArrowLeft':
-          [currentGrid, moved, scoreToAdd] = moveLeft(currentGrid);
-          break;
-        case 'ArrowRight':
-          [currentGrid, moved, scoreToAdd] = moveRight(currentGrid);
-          break;
-        default:
-          return;
-      }
-
-      if (moved) {
-        currentGrid = addTile(currentGrid);
-        setGrid(currentGrid);
-
-        scoreRef.current += scoreToAdd;
-        setScore(scoreRef.current);
-      }
-    },
-    [grid, history, isGameOver, isGameWon, persistState],
-  );
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress);
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [handleKeyPress]);
+  const { grid, score, bestScore, isGameOver, isGameWon, resetGame, undo } =
+    useGame();
 
   return (
     <div className="Wrapper">
@@ -177,3 +36,145 @@ function App() {
 }
 
 export default App;
+
+type PrevState = {
+  grid: number[][];
+  score: number;
+};
+
+const persistState = (
+  key: string,
+  value: object | string | number | boolean | null,
+) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const usePersistedState = <T,>(
+  key: string,
+  initialValue: T,
+): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [state, setState] = useState<T>(() => {
+    const persistedValue = localStorage.getItem(key);
+    return persistedValue !== null
+      ? (JSON.parse(persistedValue) as T)
+      : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(state));
+  }, [key, state]);
+
+  return [state, setState];
+};
+
+type GameState = {
+  grid: number[][];
+  score: number;
+  bestScore: number;
+  isGameOver: boolean;
+  isGameWon: boolean;
+  resetGame: () => void;
+  undo: () => void;
+};
+
+const useGame = (): GameState => {
+  const [grid, setGrid] = usePersistedState('grid', initializeGrid());
+  const [score, setScore] = usePersistedState('currentScore', 0);
+  const [bestScore, setBestScore] = usePersistedState('bestScore', 0);
+  const [history, setHistory] = usePersistedState<PrevState[]>('history', []);
+
+  const scoreRef = useRef<number>(score);
+
+  const isGameOver = gameOver(grid);
+  const isGameWon = gameWon(grid);
+
+  useEffect(() => {
+    if (score > bestScore) {
+      setBestScore(score);
+    }
+    persistState('currentScore', scoreRef.current);
+  }, [score, bestScore, setBestScore]);
+
+  const getGameLogicForKey = (
+    key: string,
+  ): ((grid: number[][]) => [number[][], boolean, number]) | null => {
+    switch (key) {
+      case 'ArrowUp':
+        return moveUp;
+      case 'ArrowDown':
+        return moveDown;
+      case 'ArrowLeft':
+        return moveLeft;
+      case 'ArrowRight':
+        return moveRight;
+      default:
+        return null;
+    }
+  };
+
+  const handleKeyPress = useCallback(
+    (e: KeyboardEvent) => {
+      if (isGameOver || isGameWon) return;
+
+      const moveFunction = getGameLogicForKey(e.key);
+      if (moveFunction === null) return;
+
+      setHistory((prevHistory) => [
+        ...prevHistory,
+        {
+          grid: JSON.parse(JSON.stringify(grid)) as number[][],
+          score: scoreRef.current,
+        },
+      ]);
+
+      const [currentGrid, moved, scoreToAdd] = moveFunction(grid);
+
+      if (moved) {
+        const newGrid = addTile(currentGrid);
+        setGrid(newGrid);
+        scoreRef.current += scoreToAdd;
+        setScore(scoreRef.current);
+      }
+    },
+    [grid, isGameOver, isGameWon, setGrid, setHistory, setScore],
+  );
+
+  const resetGame = useCallback(() => {
+    const newGrid = initializeGrid();
+    setGrid(newGrid);
+    scoreRef.current = 0;
+    setScore(0);
+    setHistory([]);
+  }, [setGrid, setScore, setHistory]);
+
+  const undo = useCallback(() => {
+    if (history.length === 0) return;
+
+    const previousState = history[history.length - 1];
+    if (previousState === undefined) return;
+
+    setGrid(previousState.grid);
+    setScore(previousState.score);
+    scoreRef.current = previousState.score;
+
+    const newHistory = history.slice(0, -1);
+    setHistory(newHistory);
+  }, [history, setGrid, setScore, setHistory]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [handleKeyPress]);
+
+  return {
+    grid,
+    score,
+    bestScore,
+    isGameOver,
+    isGameWon,
+    resetGame,
+    undo,
+  };
+};

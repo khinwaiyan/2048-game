@@ -1,3 +1,4 @@
+//gameLogic.tsx
 type Grid = number[][];
 export const initializeGrid = () => {
   //0 으로 채워진 4X4 grid
@@ -64,7 +65,7 @@ export const moveLeft = (grid: Grid): [Grid, boolean, number] => {
       shiftedRow.push(0);
     }
 
-    // tile 음직임 check
+    // tile 움직임 check
     if (!moved && !row.every((cell, index) => cell === shiftedRow[index])) {
       moved = true;
     }
