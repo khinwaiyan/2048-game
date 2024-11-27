@@ -1,3 +1,4 @@
+//gameLogic.tsx
 type Grid = number[][];
 export const initializeGrid = () => {
   //0 으로 채워진 4X4 grid
