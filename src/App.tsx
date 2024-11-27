@@ -102,18 +102,18 @@ const useGame = (): GameState => {
 
   const getGameLogicForKey = (
     key: string,
-  ): [(grid: number[][]) => [number[][], boolean, number], boolean] => {
+  ): ((grid: number[][]) => [number[][], boolean, number]) | null => {
     switch (key) {
       case 'ArrowUp':
-        return [moveUp, true];
+        return moveUp;
       case 'ArrowDown':
-        return [moveDown, true];
+        return moveDown;
       case 'ArrowLeft':
-        return [moveLeft, true];
+        return moveLeft;
       case 'ArrowRight':
-        return [moveRight, true];
+        return moveRight;
       default:
-        return [moveUp, false]; // Default case, won't be used due to early return
+        return null;
     }
   };
 
@@ -121,8 +121,8 @@ const useGame = (): GameState => {
     (e: KeyboardEvent) => {
       if (isGameOver || isGameWon) return;
 
-      const [moveFunction, isValidKey] = getGameLogicForKey(e.key);
-      if (!isValidKey) return;
+      const moveFunction = getGameLogicForKey(e.key);
+      if (moveFunction === null) return;
 
       setHistory((prevHistory) => [
         ...prevHistory,
