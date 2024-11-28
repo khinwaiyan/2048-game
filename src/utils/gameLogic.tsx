@@ -103,6 +103,7 @@ export const moveDown = (grid: Grid): [Grid, boolean, number] => {
 };
 
 export const gameOver = (grid: Grid): boolean => {
+  if (gameWon(grid)) return false;
   for (let i = 0; i < grid.length; i++) {
     const row = grid[i];
     if (row !== undefined) {
